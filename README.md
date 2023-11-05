@@ -8,6 +8,9 @@ syncmap
 
 The map supports the usual operations, with Insert() operating as both Add and Update.
 
+Maps can be serialised to []byte and then this slice merged into another map instance.  Merge will only insert values for missing keys, so that the receiving map's existing state is not affected. 
+
+
 ```go
 func main() {
 	c := New(map[string]int{"x": 0, "y": 0})
