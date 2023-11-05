@@ -1,9 +1,12 @@
 package syncmap
 
 import (
+	"bytes"
 	"cmp"
+	"encoding/gob"
 	"errors"
 	"fmt"
+	"io"
 	"sort"
 	"sync"
 )
@@ -121,9 +124,75 @@ func (s *SynchronisedMap[T, U]) Len() int {
 	return len(s.m)
 }
 
-func (s *SynchronisedMap[T, U]) String() string {
+func (s *SynchronisedMap[T, U]) snap() map[T]U {
 	s.lck.RLock()
 	defer s.lck.RUnlock()
 
-	return fmt.Sprint(s.m)
+	m := map[T]U{}
+	for k, v := range s.m {
+		m[k] = v
+	}
+
+	return m
+}
+
+// String returns the contents of the map as a string,
+// with entries ordered based on the key type T
+func (s *SynchronisedMap[T, U]) String() string {
+
+	m := s.snap()
+
+	// Apply ordering so the output is deterministic
+	keys := SortedKeys[T, U](m)
+	buf := new(bytes.Buffer)
+	io.WriteString(buf, "map[")
+	for i, key := range keys {
+		io.WriteString(buf, fmt.Sprint(key))
+		io.WriteString(buf, ":")
+		io.WriteString(buf, fmt.Sprint(m[key]))
+		if i < len(keys)-1 {
+			io.WriteString(buf, " ")
+		}
+	}
+	io.WriteString(buf, "]")
+
+	return buf.String()
+}
+
+// Bytes serialises the current contents of the map
+func (s *SynchronisedMap[T, U]) Bytes() ([]byte, error) {
+
+	b := new(bytes.Buffer)
+	enc := gob.NewEncoder(b)
+
+	if err := enc.Encode(s.snap()); err != nil {
+		return nil, err
+	}
+	return b.Bytes(), nil
+}
+
+// Merge attempts to decode the slice, assuming it is of the
+// same type as returned by Bytes().  If successful, then
+// adds any missing key/value pairs into this instance of the map.
+func (s *SynchronisedMap[T, U]) Merge(b []byte) error {
+	buf := new(bytes.Buffer)
+	buf.Write(b)
+	dec := gob.NewDecoder(buf)
+
+	m := map[T]U{}
+
+	if err := dec.Decode(&m); err != nil {
+		return err
+	}
+
+	s.lck.Lock()
+	defer s.lck.Unlock()
+
+	for k, v := range m {
+		if _, ok := s.m[k]; !ok {
+			s.m[k] = v
+		}
+	}
+
+	return nil
 }

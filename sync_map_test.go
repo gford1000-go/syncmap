@@ -124,20 +124,81 @@ func TestSyncMapDelete(t *testing.T) {
 	if fmt.Sprint(m) != "map[b:2]" {
 		t.Fatalf("unexpected post deletion state (%v)", m)
 	}
+}
 
+func TestSyncMapBytes(t *testing.T) {
+
+	c1 := New(map[string]int{"a": 1, "b": -1})
+	b, err := c1.Bytes()
+	if err != nil {
+		t.Fatalf("unexpected error during Bytes(): %v", err)
+	}
+
+	c2 := New(map[string]int{})
+
+	err = c2.Merge(b)
+	if err != nil {
+		t.Fatalf("unexpected error during Merge(): %v", err)
+	}
+
+	if c1.String() != c2.String() {
+		t.Fatalf("mismatch: expected %v, got %v", c1, c2)
+	}
+}
+
+func TestSyncMapBytes2(t *testing.T) {
+
+	c1 := New(map[string]int{"a": 1, "b": -1})
+	b, err := c1.Bytes()
+	if err != nil {
+		t.Fatalf("unexpected error during Bytes(): %v", err)
+	}
+
+	c2 := New(map[string]int{"a": 2})
+
+	err = c2.Merge(b)
+	if err != nil {
+		t.Fatalf("unexpected error during Merge(): %v", err)
+	}
+
+	expected := "map[a:2 b:-1]"
+	if c2.String() != expected {
+		t.Fatalf("mismatch: expected %q, got %q", expected, c2)
+	}
+}
+
+func TestSyncMapBytes3(t *testing.T) {
+
+	c1 := New(map[string]int{"a": 1, "b": -1})
+	b, err := c1.Bytes()
+	if err != nil {
+		t.Fatalf("unexpected error during Bytes(): %v", err)
+	}
+
+	c2 := New(map[string]int{"c": -3})
+
+	err = c2.Merge(b)
+	if err != nil {
+		t.Fatalf("unexpected error during Merge(): %v", err)
+	}
+
+	expected := "map[a:1 b:-1 c:-3]"
+	if c2.String() != expected {
+		t.Fatalf("mismatch: expected %q, got %q", expected, c2)
+	}
 }
 
 func ExampleNew() {
 	c := New(map[string]int{"x": 0, "y": 0})
 
 	// Adds z
-	c.Insert("z", 1, false)
+	c.Insert("a", 1, false)
 
 	// Updates z without raising an error
-	c.Insert("z", 2, false)
+	c.Insert("a", 2, false)
 
 	c.Remove("y")
 
 	fmt.Println(c)
-	// Output: map[x:0 z:2]
+	// Output: map[a:2 x:0]
 }
